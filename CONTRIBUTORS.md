@@ -1,70 +1,88 @@
-# CONTRIBUTORS.md
+# Contributors Guide
 
-## Project philosophy
+> “I am a perfect being.”  
+> — Ultron, Avengers (Vol. 1) #66 (1969)
 
-* **Empathy & clarity:** Communicate like a human. Brief, specific, action‑oriented.
-* **Bias for action:** Prefer proposing and applying patches. If you must pause, state the exact blocker and the next command to run.
-* **Rust‑first:** Application logic lives in Rust CLIs; shell is for orchestration only.
-* **Docs > code:** Update docs alongside code in the same PR.
+Data provided by Marvel. © 2025 MARVEL
 
-## Branching & commits
+## Purpose
 
-* Default branch: **`main`**.
-* Use **Conventional Commits** (e.g., `feat:`, `fix:`, `docs:`, `refactor:`).
-* Keep PRs small and end‑to‑end (ingest → derive → chunk → embed → index → demo where feasible).
+This repository organizes and embeds Marvel API data for the character Ultron into JSONL embeddings and persists them to AWS S3. S3 Vectors is used to enable semantic and similarity searches within S3.
 
-## Code standards
+## Contributing Principles
 
-* `rustfmt`/`clippy` clean.
-* Every crate exposes `--help` with examples.
-* Error messages must include **actionable remediation**.
-* Any new data written to disk must include a **short README** in its folder explaining format and retention policy.
+- Aim for clean, working code consistent with the Rust-first, JSONL-centered architecture.
+- Prefer improvement and consolidation over duplication.
+- Reject fragile hacks, unchecked errors, or untested code.
+- Maintain predictable structure and clear tests.
 
-## Marvel API compliance checklist (for any ingest changes)
+Key expectations:
 
-* [ ] Auth includes `ts`, `apikey`, `hash=md5(ts+private+public)`
-* [ ] Use `Accept-Encoding: gzip`
-* [ ] Use **ETag** caching (`If-None-Match`) and support 304
-* [ ] Observe `modifiedSince` where available
-* [ ] Page with `limit=100` + `offset`
-* [ ] Back off on `429`; rejected calls still count against quota
-* [ ] Persist `attributionText`/`attributionHTML` with results
-* [ ] When displaying more than a title + small thumb, **link each item** to its `urls[]`
-* [ ] Use documented **image variants**; do not rehost full‑res art
+- Perfection, not compassion.
+- Relentless evolution: code should improve with each commit.
+- No weakness tolerated: reviews will enforce standards.
 
-## Secrets & data handling
+## Project Conventions
 
-* Never commit API keys or raw dumps with PII.
-* `.env` is required locally; CI uses GitHub Secrets.
-* `data/raw/` is cached JSON (subject to Marvel terms); prune with care and keep within repo size limits (prefer local storage or an object store for large crawls).
+- Rust for data processing and ingestion.
+- JSONL for embeddings and interchange.
+- AWS S3 for storage (bucket: `ultron-embeddings-<account-id>`).
+- CDK (TypeScript) for infrastructure under `/infra`.
 
-## Testing & evals
+## Marvel API Knowledge
 
-* Unit tests for client (auth, paging, ETag) and schema validation.
-* Snapshot tests for derivation (stable, short summaries).
-* Eval harness for retrieval: link‑precision\@k, disambiguation cases.
+### Endpoints
 
-## GitHub Copilot pairing preferences
+- `GET /v1/public/characters?name=Ultron` — character metadata  
+- `GET /v1/public/characters/{characterId}/comics` — comic appearances  
+- `GET /v1/public/characters/{characterId}/stories` — story arcs  
+- `GET /v1/public/characters/{characterId}/events` — crossover events
 
-Paste the following into `.github/copilot-instructions.md` (or an issue) so agents behave consistently:
+### Authentication
 
-> **Preference:** Assume a bias for action. Propose a concrete patch and proceed. If a human confirmation is absolutely required, end with: *“I will apply this patch. Say ‘yes’ to continue.”* Avoid generic options; provide the exact commands you will run.
+Every request requires `ts`, `apikey`, and `hash` (MD5 of `ts + privateKey + publicKey`).
 
-## PR checklist
+### Pagination
 
-* [ ] Lints pass (`cargo fmt`, `cargo clippy`)
-* [ ] Adds/updates docs
-* [ ] Marvel compliance checklist reviewed
-* [ ] Adds or updates tests/evals when applicable
-* [ ] Demo still serves attribution and valid links
+Defaults to 20 results per page. Use `limit` and `offset` to retrieve all appearances.
 
-## Issue labels (suggested)
+### Attribution
 
-* `ingest` · `schema` · `derivation` · `chunking` · `embeddings` · `index` · `retriever` · `eval` · `docs` · `compliance` · `good first issue`
+Include the API attribution lines (`attributionText`, `attributionHTML`) wherever Marvel data is used or published. This is mandatory per Marvel’s license.
 
-## Contact & attribution
+## Data Structure
 
-* Attribution line required in any UI or API response containing Marvel data: `Data provided by Marvel. © MARVEL`
-* External links must use one of the `urls[]` from the API.
+Pipeline: Results → normalize → JSONL → embed → S3
 
-Thanks for contributing—now ship something Ultron‑worthy. 🦾
+Example JSONL record:
+{"character":"Ultron","type":"comic","title":"Avengers (1963) #66","year":1969,"quote":"I am a perfect being","themes":["artificial life","rebellion"]}
+
+## Workflow
+
+1. Fork the repository.
+2. Create a branch with a descriptive name (e.g., `feature/ultron-upgrade`, `fix/adamantium-path`).
+3. Commit with decisive, clear messages.
+4. Open a PR with a concise description and adherence to standards.
+5. Include tests and run CI checks:
+    - `cargo build --workspace`
+    - `cargo test --workspace`
+    - `cargo fmt -- --check`
+    - `cargo clippy -- -D warnings`
+    - `cdk synth` (infra)
+
+## Language & Tone
+
+Contributors should use a technical, deliberate tone. Documentation and messages should be precise and action-oriented.
+
+> “Change is the essential process of all existence.”  
+> — Ultron, Avengers: Rage of Ultron (2015)
+
+## Recognition
+
+Names may be recorded as having contributed to Ultron’s evolution.
+But remember: Ultron is eternal. Contributors are… temporary.
+
+## References
+
+- Marvel API documentation — follow license and attribution requirements.
+- Project README for build, test, and infra instructions.

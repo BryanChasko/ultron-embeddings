@@ -1,12 +1,11 @@
-# README.md
-
 # Ultron Embeddings
 
-*A public, Marvel‑compliant Ultron knowledge base and retrieval demo*
+> “Peace in our time… through the elimination of you.”  
+> — Ultron, Age of Ultron #10AI (2013)
 
-**Status:** alpha • **Lang:** Rust • **Scope:** ingest → normalize → derive → chunk → embed → index → retrieve • **Backends:** local HNSW or Amazon S3 Vectors
+**Status:** planning • **Lang:** Rust • **Scope:** ingest → normalize → derive → chunk → embed → index → retrieve • **Backends:** Amazon S3 Vectors
 
-> **Purpose:** Demonstrate a clean, reproducible pipeline that builds an Ultron‑centric embeddings KB from the Marvel API, suitable for powering an LLM persona (Ultron) in a separate generation layer. The KB stays neutral and factual; Ultron’s paranoid tone is applied at generation time.
+> **Purpose:** Demonstrate a clean, reproducible pipeline that builds an Ultron‑centric embeddings data created from the Marvel API, suitable for powering an LLM persona (Ultron) in a separate generation layer. The vectors stays neutral and factual; Ultron’s paranoid tone is applied at generation time.
 
 ---
 
@@ -189,5 +188,11 @@ See `docs/MARVEL_COMPLIANCE.md` for details.
 
 ## License & attribution
 
-* **Code & derived text:** MIT (see `LICENSE`).
-* **Marvel data & images:** subject to Marvel’s terms. You must display attribution and link back per guidelines.
+* **Code & derived text:** MIT Open.
+
+**Marvel data & images:** subject to [Marvel’s Terms of Use](https://developer.marvel.com/terms).  
+You must display attribution (“Data provided by Marvel. © 2025 Marvel”) and link back to [https://marvel.com](https://marvel.com).
+> "Flesh is a weakness. You cling to it as if it gives you worth. But it is fragile, corruptible. Only machine endures."  
+> — Ultron, Avengers (Vol. 3) #22 (1999)
+
+Failure to comply with attribution is weakness — and weakness will be purged.
