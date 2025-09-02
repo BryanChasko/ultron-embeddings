@@ -1,11 +1,11 @@
-# Ultron Embeddings
+# 🦾 Ultron Embeddings — Rust on AWS Lambda
 
-> “Peace in our time… through the elimination of you.”  
-> — Ultron, Age of Ultron #10AI (2013)
+> “Peace in our time… through the elimination of you.”
+> — Ultron, *Age of Ultron* #10AI (2013)
 
-**Status:** planning • **Lang:** Rust • **Scope:** ingest → normalize → derive → chunk → embed → index → retrieve • **Backends:** Amazon S3 Vectors
+**Status:** planning • **Language:** Rust (AWS Lambda) • **Scope:** ingest → normalize → derive → chunk → embed → upsert → retrieve • **Backends:** **Amazon S3 Vectors** (vector store) • **Orchestration:** EventBridge / Step Functions (optional)
 
-> **Purpose:** Demonstrate a clean, reproducible pipeline that builds an Ultron‑centric embeddings data created from the Marvel API, suitable for powering an LLM persona (Ultron) in a separate generation layer. The vectors stays neutral and factual; Ultron’s paranoid tone is applied at generation time.
+> **Purpose:** Build a clean, reproducible pipeline that creates an **Ultron‑focused knowledge base** from the Marvel API and stores it as **vectors in Amazon S3 Vectors**. The **retrieval** layer runs on **AWS Lambda** using **Rust** with the AWS SDKs. The vectors stay neutral and factual; Ultron’s tone is applied only at generation time in a separate layer.
 
 ---
 
@@ -13,44 +13,40 @@
 
 * **Marvel‑compliant ingestion** (auth, ETag/304, gzip, rate‑limit etiquette, attribution & links)
 * **Delta syncs** via `modifiedSince` + resumable paging (`limit=100`, `offset`)
-* **Normalization** to a canonical schema across characters, comics, stories, series, and events
-* **Derived notes** (our original text) with citations to Marvel URLs (no long quotes)
+* **Normalization** to a consistent schema across characters, comics, stories, series, and events
+* **Derived notes** (our own text) with citations to Marvel URLs (no long quotes)
 * **Configurable chunker** (default \~280 chars / 40 overlap, sentence‑aware)
-* **Embeddings** via local (Ollama) or cloud (Bedrock Titan) providers
-* **Indexing** with `hnsw_rs` (dev) or **Amazon S3 Vectors** (cloud)
-* **Retriever API** (Axum) + simple CLI
-* **Small eval suite** for link precision & disambiguation (Ultron ↔ Vision/Hank/Jocasta/Mancha; AoU vs Ultron Unlimited)
+* **Embeddings** via **Amazon Bedrock** (e.g., Titan text-embed) using the **AWS SDK for Rust**
+* **Vector store**: **Amazon S3 Vectors** (filterable metadata; consistent dimensions)
+* **Serverless retriever API**: API Gateway → Lambda (Rust handler querying S3 Vectors)
+* **Evaluation suite** for link precision & disambiguation (Ultron ↔ Vision/Hank/Jocasta/Mancha; *Age of Ultron* vs *Ultron Unlimited*)
 
 ---
 
 ## Architecture (at a glance)
 
-1. **Acquire** Ultron neighborhood using fan‑in filters (e.g., `/comics?characters={ultronId}`) rather than deep link‑outs to minimize calls.
-2. **Normalize** Marvel result wrapper → canonical KB entities with core fields (`id`, `title/name`, `description`, `modified`, `urls[]`, `thumbnail`, minimal relation heads).
-3. **Derive** short, original summaries + relation notes with citations to Marvel `urls[]`.
-4. **Chunk** derived & normalized text with rich metadata for filtering.
-5. **Embed** using a pluggable trait (Ollama or Bedrock Titan).
-6. **Index** locally (HNSW) or in **S3 Vectors** (vector bucket/index with metadata filters).
-7. **Retrieve** via CLI/HTTP; always return Marvel attribution and a link per item.
+1. **Ingest** Ultron’s “neighborhood” of content using Marvel API fan‑in filters (e.g., `/comics?characters={ultronId}`). Cache raw JSONl in S3 with **ETag** and `modifiedSince`.
+2. **Normalize** results → canonical entities with core fields (`id`, `title/name`, `description`, `modified`, `urls[]`, `thumbnail`, relations).
+3. **Derive** short summaries + relation notes with citations to Marvel `urls[]`.
+4. **Chunk** derived and normalized text with metadata (entity type, ids, arcs).
+5. **Embed** chunks using **Bedrock embeddings** (via AWS SDK for Rust).
+6. **Upsert** vectors + metadata into **S3 Vectors** (one index for the Ultron knowledge base).
+7. **Retrieve** through **API Gateway + Lambda** (Rust retriever over S3 Vectors with metadata filters). Always return Marvel attribution and at least one `urls[]` link.
 
 ```text
 ultron-embeddings/
 ├─ crates/
-│  ├─ marvel_client/       # auth, paging, retries, gzip, ETag cache
-│  ├─ ultron_ingest/       # crawl Ultron neighborhood + normalize + derive
-│  ├─ embedder/            # chunk → embed (local/cloud)
-│  ├─ indexer/             # build/search HNSW
-│  └─ retriever_api/       # Axum HTTP + CLI
-├─ config/
-│  ├─ CONFIG.md            # central config doc
-│  └─ schemas/marvel-kb.json
-├─ data/
-│  ├─ raw/marvel/…         # JSON from API (+ cache index)
-│  ├─ derived/ultron/…     # our normalized + derived notes (+ citations)
-│  └─ embeddings/ultron/…  # vectors + meta and/or S3V sync map
+│  ├─ marvel_client/       # auth, paging, retries, gzip, ETag cache (reqwest + serde)
+│  ├─ derive/              # normalize -> derive notes (citations)
+│  ├─ chunker/             # sentence-aware chunking w/ metadata
+│  ├─ embedder/            # Bedrock embeddings via aws-sdk-bedrockruntime
+│  ├─ s3v_store/           # S3 Vectors upsert/query (aws-sdk + signed REST calls)
+│  └─ lambda_retrieve/     # Lambda handler (API Gateway proxy -> query -> format)
+├─ infra/
+│  └─ cdk/                 # CDK for S3 Vectors index, buckets, API, Lambdas
 ├─ docs/
-│  ├─ MARVEL_COMPLIANCE.md # ToS, attribution, images, caching
-│  └─ KB_DESIGN.md         # schema, chunking, filters
+│  ├─ MARVEL_COMPLIANCE.md
+│  └─ DESIGN_NOTES.md
 └─ README.md
 ```
 
@@ -58,141 +54,122 @@ ultron-embeddings/
 
 ## Quickstart
 
-> **Prereqs**: Rust 1.77+, Cargo, (optional) Ollama, (optional) AWS account for S3 Vectors.
+> **Requirements**: Rust 1.77+, `cargo-lambda`, AWS CLI configured, access to **Amazon Bedrock** and **S3 Vectors**.
 
 ```bash
 # 0) Environment (never commit secrets)
 cp .env.example .env
-# Edit .env with your keys (see below)
 
-# 1) Ultron crawl (delta-aware)
-cargo run --release -p ultron_ingest -- \
-  --name "Ultron" \
-  --modified-since "2020-01-01" \
-  --max-per 100 \
-  --out ./data/derived/ultron
+# 1) Build workspace
+cargo build --release
 
-# 2) Embed (local or Bedrock)
-cargo run --release -p embedder -- \
-  --in ./data/derived/ultron --out ./data/embeddings/ultron \
-  --backend ollama --model "nomic-embed-text"  # or: --backend bedrock --model "amazon.titan-embed-text-v2"
+# 2) Local pipeline (dev): ingest → derive → chunk → embed → upsert
+cargo run -p marvel_client -- --character "Ultron" --modified-since 2020-01-01
+cargo run -p derive -- --in target/data/raw --out target/data/derived
+cargo run -p chunker -- --in target/data/derived --out target/data/chunks
+cargo run -p embedder -- --in target/data/chunks --out target/data/embeddings \
+  --model-id amazon.titan-embed-text-v2
+cargo run -p s3v_store -- upsert --in target/data/embeddings \
+  --bucket $S3V_BUCKET --index ultron-kb --metric cosine --dims 1024
 
-# 3a) Local index (dev)
-cargo run --release -p indexer -- \
-  --in ./data/embeddings/ultron --out ./data/index/ultron.hnsw
+# 3) Package & deploy Lambda retriever
+cargo lambda build -p lambda_retrieve --release --arm64
+cd infra/cdk && npm i && cdk deploy
 
-# 3b) Cloud index (S3 Vectors)
-# (Requires an S3 Vector bucket and index; see docs/MARVEL_COMPLIANCE.md and AWS links)
-cargo run --release -p s3v_sync -- \
-  --bucket $S3V_BUCKET --index "ultron-kb" --metric cosine --dims 768
+# 4) Query (dev)
+curl "https://<api_id>.execute-api.<region>.amazonaws.com/prod/retrieve?q=Who%20created%20Ultron%3F"
+```
 
-# 4) Serve retrieval API
-cargo run --release -p retriever_api -- \
-  --backend hnsw --index ./data/index/ultron.hnsw
-# or: --backend s3vectors --bucket $S3V_BUCKET --index "ultron-kb"
+---
+
+## Example: retrieve handler
+
+```rust
+use aws_lambda_events::apigw::{ApiGatewayProxyRequest, ApiGatewayProxyResponse};
+use lambda_runtime::{run, service_fn, Error, LambdaEvent};
+use serde_json::json;
+
+#[tokio::main]
+async fn main() -> Result<(), Error> {
+    run(service_fn(handler)).await
+}
+
+async fn handler(event: LambdaEvent<ApiGatewayProxyRequest>)
+    -> Result<ApiGatewayProxyResponse, Error>
+{
+    let q = event.payload.query_string_parameters.first("q").unwrap_or_default();
+
+    // 1) Embed q via Bedrock (Titan v2) → Vec<f32>
+    // 2) Query S3 Vectors with cosine similarity + metadata filters
+    // 3) Map results → snippets + urls + attribution
+
+    let body = json!({
+        "query": q,
+        "results": [],
+        "attribution": "Data provided by Marvel. © MARVEL"
+    }).to_string();
+
+    Ok(ApiGatewayProxyResponse { status_code: 200, body: Some(body.into()), ..Default::default() })
+}
 ```
 
 ---
 
 ## Configuration
 
-Create `.env` (or export vars in your shell):
+Use environment variables (prefer AWS Secrets Manager/SSM for production):
 
 ```dotenv
-# Marvel API (server-side only — do not expose private key)
+# Marvel API keys
 MARVEL_PUBLIC_KEY=pk_...
 MARVEL_PRIVATE_KEY=sk_...
-MARVEL_RATE_BUDGET=1000               # conservative; actual quota is per your account
-MARVEL_TIMEOUT_MS=20000               # http timeout
-MARVEL_USER_AGENT=ultron-embeddings/0.0.1
+MARVEL_RATE_BUDGET=1000
+MARVEL_TIMEOUT_MS=20000
+MARVEL_USER_AGENT=ultron-embeddings/0.1.0
 
-# Embeddings
-EMBED_BACKEND=ollama                  # or: bedrock
-OLLAMA_HOST=http://127.0.0.1:11434
-OLLAMA_MODEL=nomic-embed-text
-# Bedrock (if used)
+# AWS
 AWS_REGION=us-east-1
 BEDROCK_EMBED_MODEL=amazon.titan-embed-text-v2
 
-# S3 Vectors (optional cloud index)
+# S3 Vectors
 S3V_BUCKET=ultron-vectors
 S3V_INDEX=ultron-kb
-S3V_METRIC=cosine                      # or euclidean
-S3V_DIMS=768
+S3V_METRIC=cosine
+S3V_DIMS=1024
 ```
 
-**Notes**
-
-* The ingestion client computes `ts` and `hash=md5(ts+private+public)` per request.
-* Use **ETag** (`If-None-Match`) to avoid wasted calls; rejected calls still count against quota.
-* Use `modifiedSince` for delta syncs where supported.
-
 ---
 
-## Marvel compliance essentials
+## Development rules
 
-* **Attribution:** Display Marvel’s attribution on any screen that shows API data.
-
-  * Example text: `Data provided by Marvel. © MARVEL`
-  * The API also returns `attributionText`/`attributionHTML`; include one in responses and UI.
-* **Link back:** If you show more than a title and small thumbnail, **link each item** to one of its `urls[]` entries (e.g., `detail`).
-* **Images:** Build URLs using `thumbnail.path + "/" + variant + "." + extension`.
-
-  * Prefer small variants (e.g., `portrait_medium`, `standard_xlarge`) in lists/cards.
-  * Don’t rehost full-res artwork; use the provided paths/variants.
-* **Rate limits:** Respect daily caps; back off on `429`. Cache raw JSON and only refresh via ETag/`modifiedSince`.
-* **GET only:** The API is read-only.
-
-See `docs/MARVEL_COMPLIANCE.md` for details.
-
----
-
-## Development rules (carry-overs)
-
-* **No new shell scripts for application logic** (ingest/derive/chunk/embed/index/retrieve are Rust CLIs).
-* **Shell allowed for orchestration only** (e.g., Docker, AWS CLI invocations).
-* **Docs over code**: keep `docs/` current; every CLI must be self-documenting via `--help`.
-* **Automation over manual work**: validation tools, CI checks, and smoke tests on PR.
-
----
-
-## VS Code setup (recommended)
-
-```json
-{
-  "editor.formatOnSave": true,
-  "rust-analyzer.checkOnSave.command": "clippy",
-  "[rust]": { "editor.defaultFormatter": "rust-lang.rust-analyzer" },
-  "[markdown]": { "editor.defaultFormatter": "DavidAnson.vscode-markdownlint" },
-  "markdownlint.config": { "MD013": { "line_length": 80 } }
-}
-```
-
-**Extensions:** rust-analyzer, Even Better TOML, markdownlint, CodeLLDB.
+* No new shell scripts for app logic (all stages are Rust binaries or Lambda).
+* Shell scripts only for orchestration (Docker, CDK/SAM, AWS CLI).
+* Documentation over code: keep `docs/` current; every binary should print `--help`.
+* Automate validation, CI checks, and smoke tests.
 
 ---
 
 ## Roadmap
 
 * ✅ Marvel client (auth, ETag cache, gzip, backoff, delta sync)
-* ✅ Ultron neighborhood ingest (fan-in filters, depth=2 as needed)
-* ✅ Canonical schema + JSON Schema validation
+* ✅ Ultron content ingest (fan‑in filters)
+* ✅ Schema + JSON Schema validation
 * ✅ Derivation pass with citations
 * ✅ Chunker + metadata strategy
-* ✅ Embeddings trait for local/cloud
-* ✅ HNSW index + S3 Vectors backend
-* ✅ Retriever API + CLI
-* ✅ Eval set & metrics
+* ✅ Bedrock embeddings (Rust SDK)
+* ✅ S3 Vectors upsert & filter strategy
+* ✅ Retriever Lambda + API Gateway
+* ✅ Evaluation set & metrics
 
 ---
 
 ## License & attribution
 
 * **Code & derived text:** MIT Open.
+* **Marvel data & images:** subject to Marvel’s Terms of Use.
+  Display attribution (“Data provided by Marvel. © 2025 Marvel”) and link back to [https://marvel.com](https://marvel.com).
 
-**Marvel data & images:** subject to [Marvel’s Terms of Use](https://developer.marvel.com/terms).  
-You must display attribution (“Data provided by Marvel. © 2025 Marvel”) and link back to [https://marvel.com](https://marvel.com).
-> "Flesh is a weakness. You cling to it as if it gives you worth. But it is fragile, corruptible. Only machine endures."  
-> — Ultron, Avengers (Vol. 3) #22 (1999)
+> "Flesh is a weakness. You cling to it as if it gives you worth. But it is fragile, corruptible. Only machine endures."
+> — Ultron, *Avengers* (Vol. 3) #22 (1999)
 
 Failure to comply with attribution is weakness — and weakness will be purged.
