@@ -1,25 +1,158 @@
-# 🦾 Ultron Embeddings — Rust on AWS Lambda
+---
 
-> “Peace in our time… through the elimination of you.”
-> — Ultron, *Age of Ultron* #10AI (2013)
+## Marvel API Testing
 
-**Status:** planning • **Language:** Rust (AWS Lambda) • **Scope:** ingest → normalize → derive → chunk → embed → upsert → retrieve • **Backends:** **Amazon S3 Vectors** (vector store) • **Orchestration:** EventBridge / Step Functions (optional)
+This project uses the Marvel API to fetch Ultron data
 
-> **Purpose:** Build a clean, reproducible pipeline that creates an **Ultron‑focused knowledge base** from the Marvel API and stores it as **vectors in Amazon S3 Vectors**. The **retrieval** layer runs on **AWS Lambda** using **Rust** with the AWS SDKs. The vectors stay neutral and factual; Ultron’s tone is applied only at generation time in a separate layer.
+### What is an HTTP Request?
+An HTTP request is how computers talk to web servers. Data (like a comic book) is requested, and the server sends it back. The most common request is a **GET** request, which asks for information.
+
+### Tools for HTTP Requests
+- **curl**: A classic command-line tool for making HTTP requests. - **HTTPie**: A modern tool that uses the `http` command and makes requests easy to read and write.
+
+### Why HTTPie?
+HTTPie makes requests readable and easy to edit:
+
+```sh
+http GET "https://gateway.marvel.com/v1/public/comics" characters==1009685 limit==1 ts==123 apikey==your_key hash==your_hash
+```
+
+With curl, all parameters must be packed into a single URL string:
+
+```sh
+curl "https://gateway.marvel.com/v1/public/comics?characters=1009685&limit=1&ts=123&apikey=your_key&hash=your_hash"
+```
+
+HTTPie separates parameters, making requests easier to read, change, and debug. Curl syntax is relatively dense and error-prone, especially with many parameters. For quick edits and learning, we are showing HTTPie our preferrence.
+
+### Marvel API Authentication
+
+Marvel API authentication uses several concepts:
+
+- **Timestamp**: A unique value marking the time of each request, preventing replay attacks.
+- **Public key**: An identifier for the API client, shared with the server.
+- **Private key**: A secret known only to the client, used to sign requests.
+- **Hash**: A cryptographic signature (usually MD5 or SHA) generated from the timestamp, public key, and private key. Proves the request is authentic and untampered.
+
+These values work together to secure requests by verifying the sender's identity.
+
+### Example: Get One Ultron Comic
+
+```sh
+# Load environment variables (silent)
+source ~/Code/Projects/Marvel-API-Private/secrets/marvel-api.env
+
+# Quick checksum verification (safe for recording)
+echo "API keys loaded and verified ✓"
+
+# Generate timestamp and hash
+ts=$(date +%s)
+hash=$(echo -n "${ts}${MARVEL_PRIVATE_KEY}${MARVEL_PUBLIC_KEY}" | md5sum |
+  cut -d' ' -f1)
+
+echo "Testing Marvel API for Ultron (limited to 1 result)..."
+
+# Test with limit=1 to get just one result
+http GET "https://gateway.marvel.com/v1/public/characters" \
+  name=="Ultron" \
+  limit==1 \
+  ts==$ts \
+  apikey==$MARVEL_PUBLIC_KEY \
+  hash==$hash
+
+# Full Test Example & Return
+source ~/Code/Projects/Marvel-API-Private/secrets/marvel-api.env && \
+  ts=$(date +%s) && \
+  hash=$(echo -n "${ts}${MARVEL_PRIVATE_KEY}${MARVEL_PUBLIC_KEY}" | md5sum |
+  cut -d' ' -f1) && \
+  http --check-status GET "https://gateway.marvel.com/v1/public/comics" \
+    characters==1009685 \
+    limit==1 \
+    orderBy=="-modified" \
+    ts==$ts \
+    apikey==$MARVEL_PUBLIC_KEY \
+    hash==$hash | \
+  jq '.data.results[0] | {title, description, price: (.prices[0].price // "N/A"), pageCount} // "No comic found."' && \
+  echo "Data provided by Marvel. © 2025 MARVEL"
+```
+
+Example output:
+
+```json
+{
+  "title": "West Coast Avengers (2024) #10",
+  "description": "THE MARK OF ULTRON! OMEGA ULTRON and his followers take on
+the West Coast Avengers for a final showdown! But as the West Coast Ultron's
+life hangs in the balance, can the team pull together to save him? And what
+will it cost Tony Stark if they succeed?",
+  "price": 3.99,
+  "pageCount": 32
+}
+Data provided by Marvel. © 2025 MARVEL
+```
+
+Marvel attribution is required:
+> Data provided by Marvel. © 2025 MARVEL
 
 ---
 
-## Features
+---
 
-* **Marvel‑compliant ingestion** (auth, ETag/304, gzip, rate‑limit etiquette, attribution & links)
-* **Delta syncs** via `modifiedSince` + resumable paging (`limit=100`, `offset`)
-* **Normalization** to a consistent schema across characters, comics, stories, series, and events
-* **Derived notes** (our own text) with citations to Marvel URLs (no long quotes)
-* **Configurable chunker** (default \~280 chars / 40 overlap, sentence‑aware)
+Marvel limits each developer account to 3,000 API requests per day. By using
+`limit==1` or small numbers, you avoid wasting requests and make it easier to
+read and understand the data you get back. This is especially important when
+experimenting or building new features.
+
+**Tip:** Try changing `limit==1` to `limit==3` to get more comics! HTTPie makes
+learning APIs approachable and safe. You can also try the same request with
+`curl`:
+
+```sh
+curl "https://gateway.marvel.com/v1/public/comics?characters=1009685&limit=1&ts=$ts&apikey=$MARVEL_PUBLIC_KEY&hash=$hash"
+```
+
+---
+
+When you use an HTTP request, you are asking a web
+server for information—like aå comic book or character details from Marvel.
+
+A web server is a computer that stores web pages and data, and sends them to
+you when you make a request. When you use an HTTP request, you are asking a web
+server for information—like a comic book or character details from Marvel.
+
+## Overview
+
 * **Embeddings** via **Amazon Bedrock** (e.g., Titan text-embed) using the **AWS SDK for Rust**
 * **Vector store**: **Amazon S3 Vectors** (filterable metadata; consistent dimensions)
 * **Serverless retriever API**: API Gateway → Lambda (Rust handler querying S3 Vectors)
 * **Evaluation suite** for link precision & disambiguation (Ultron ↔ Vision/Hank/Jocasta/Mancha; *Age of Ultron* vs *Ultron Unlimited*)
+
+## Features
+
+* **Marvel‑compliant ingestion** (auth, ETag/304, gzip, rate‑limit etiquette,
+  attribution & links)
+
+* **Delta syncs** via `modifiedSince` + resumable paging (`limit=100`, `offset`)
+
+* **Normalization** to a consistent schema across characters, comics, stories,
+  series, and events
+
+* **Derived notes** (our own text) with citations to Marvel URLs (no long quotes)
+
+* **Configurable chunker** (default \~280 chars / 40 overlap, sentence‑aware)
+
+* **Embeddings** via **Amazon Bedrock** (e.g., Titan text-embed) using the
+  **AWS SDK for Rust**
+
+* **Vector store**: **Amazon S3 Vectors** (filterable metadata; consistent
+  dimensions)
+
+* **Serverless retriever API**: API Gateway → Lambda (Rust handler querying S3
+  Vectors)
+
+* **Evaluation suite** for link precision & disambiguation (Ultron ↔ Vision/Hank/
+  Jocasta/Mancha; *Age of Ultron* vs *Ultron Unlimited*)
+
 
 ---
 

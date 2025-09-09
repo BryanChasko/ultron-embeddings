@@ -71,11 +71,12 @@ Example JSONL record:
 3. Commit with decisive, clear messages.
 4. Open a PR with a concise description and adherence to standards.
 5. Include tests and run CI checks:
-  - `cargo build --workspace`
-  - `cargo test --workspace`
-  - `cargo fmt -- --check`
-  - `cargo clippy -- -D warnings`
-  - `cdk synth` (infra)
+
+- `cargo build --workspace`
+- `cargo test --workspace`
+- `cargo fmt -- --check`
+- `cargo clippy -- -D warnings`
+- `cdk synth` (infra)
 
 ## Language & Tone
 
