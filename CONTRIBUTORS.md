@@ -7,11 +7,14 @@ Data provided by Marvel. © 2025 MARVEL
 
 ## Purpose
 
-This repository organizes and embeds Marvel API data for the character Ultron into JSONL embeddings and persists them to AWS S3. S3 Vectors is used to enable semantic and similarity searches within S3.
+This repository organizes and embeds Marvel API data for the character Ultron
+into JSONL embeddings and persists them to AWS S3.
+S3 Vectors is used to enable semantic and similarity searches within S3.
 
 ## Contributing Principles
 
-- Aim for clean, working code consistent with the Rust-first, JSONL-centered architecture.
+- Aim for clean, working code consistent with a Rust-preferred,
+  JSONL-centered architecture.
 - Prefer improvement and consolidation over duplication.
 - Reject fragile hacks, unchecked errors, or untested code.
 - Maintain predictable structure and clear tests.
@@ -40,39 +43,44 @@ Key expectations:
 
 ### Authentication
 
-Every request requires `ts`, `apikey`, and `hash` (MD5 of `ts + privateKey + publicKey`).
+Every request requires `ts`, `apikey`, and `hash` (MD5 of
+ts + privateKey + publicKey`).
 
 ### Pagination
 
-Defaults to 20 results per page. Use `limit` and `offset` to retrieve all appearances.
+Defaults to 20 results per page. Use `limit` and `offset`
+to retrieve all appearances.
 
 ### Attribution
 
-Include the API attribution lines (`attributionText`, `attributionHTML`) wherever Marvel data is used or published. This is mandatory per Marvel’s license.
+Include the API attribution lines (`attributionText`, `attributionHTML`)
+wherever Marvel data is used or published.
+This is mandatory per Marvel’s license.
 
 ## Data Structure
 
 Pipeline: Results → normalize → JSONL → embed → S3
 
 Example JSONL record:
-{"character":"Ultron","type":"comic","title":"Avengers (1963) #66","year":1969,"quote":"I am a perfect being","themes":["artificial life","rebellion"]}
 
 ## Workflow
 
 1. Fork the repository.
-2. Create a branch with a descriptive name (e.g., `feature/ultron-upgrade`, `fix/adamantium-path`).
+2. Create a branch with a descriptive name (e.g.,
+   `feature/ultron-upgrade`, `fix/adamantium-path`).
 3. Commit with decisive, clear messages.
 4. Open a PR with a concise description and adherence to standards.
 5. Include tests and run CI checks:
-    - `cargo build --workspace`
-    - `cargo test --workspace`
-    - `cargo fmt -- --check`
-    - `cargo clippy -- -D warnings`
-    - `cdk synth` (infra)
+  - `cargo build --workspace`
+  - `cargo test --workspace`
+  - `cargo fmt -- --check`
+  - `cargo clippy -- -D warnings`
+  - `cdk synth` (infra)
 
 ## Language & Tone
 
-Contributors should use a technical, deliberate tone. Documentation and messages should be precise and action-oriented.
+Contributors should use a technical, deliberate tone. Documentation and
+messages should be precise and action-oriented.
 
 > “Change is the essential process of all existence.”  
 > — Ultron, Avengers: Rage of Ultron (2015)
