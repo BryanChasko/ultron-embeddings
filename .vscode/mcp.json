@@ -1,0 +1,56 @@
+{
+  "servers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem"],
+      "env": {
+        "MCP_FS_ALLOWED_DIRS": "${workspaceFolder}"
+      }
+    },
+    "git-local": {
+      "command": "npx",
+      "args": ["-y", "@cyanheads/git-mcp-server"]
+    },
+    "github-remote": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp"
+    },
+    "aws-cdk": {
+      "type": "http",
+      "url": "https://awslabs.github.io/mcp/cdk"
+    },
+    "s3-tables": {
+      "type": "http",
+      "url": "https://awslabs.github.io/mcp/s3-tables"
+    },
+    "cloudwatch-logs": {
+      "type": "http",
+      "url": "https://awslabs.github.io/mcp/cloudwatch"
+    },
+    "fetch": {
+      "command": "uvx",
+      "args": ["mcp-server-fetch"]
+    },
+    "json-schema": {
+      "command": "uvx",
+      "args": ["mcp-json-schema"]
+    },
+    "langgraph": {
+      "command": "uvx",
+      "args": ["mcp-langgraph"]
+    },
+    "bedrock": {
+      "command": "uvx",
+      "args": ["mcp-bedrock"]
+    },
+    "llama": {
+      "command": "uvx",
+      "args": ["mcp-llama"]
+    },
+    "secrets": {
+      "command": "uvx",
+      "args": ["mcp-secrets"]
+    }
+  },
+  "inputs": []
+}
