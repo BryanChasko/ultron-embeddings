@@ -1,9 +1,8 @@
 # Ultron Embeddings Project
 
-Build a Marvel-sourced knowledge base around **Ultron** with a small, fast,
-serverless stack: Rust on [AWS Lambda](https://docs.aws.amazon.com/lambda/latest/dg/welcome.html) (ARM64), [Candle](https://github.com/huggingface/candle) embeddings, LangGraph orchestration,
-and a single `/chat` endpoint. The goal is to prove retrieval + generation flows,
-query Marvel data safely, and demonstrate the Ultron personality as a custom
+Build Marvel-sourced knowledge around **Ultron** structured in a way that enables GenAI training, teaching essential concepts of data retrieval by introducing APIs as well as all the steps necessary to take existing data and use it in GenAI Large Language Model development. The goal is to prove retrieval + generation flows,
+query Marvel data safely and with respect to the  
+intellectual property of the mouse, and demonstrate the Ultron personality as a custom
 training proof.
 
 ```txt
@@ -42,6 +41,16 @@ training proof.
                    `-.___.-'
 
 ```
+
+## Tech stack
+
+Rust Lambdas (ARM64) for ingestion, retrieval, and embeddings (Candle).
+
+LangGraph (Python) as the orchestration plane.
+
+S3 for storage, DynamoDB for session/checkpoints.
+
+One public endpoint: /chat.
 
 All Marvel data provided by Marvel. © 2025 MARVEL
 
